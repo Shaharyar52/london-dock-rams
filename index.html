@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RAMS Briefing & Signature</title>
+  <style>
+    :root { --bg:#f5f7fa; --card:#fff; --text:#172033; --muted:#667085; --border:#d0d5dd; --accent:#1d4ed8; }
+    * { box-sizing:border-box; }
+    body { margin:0; font-family:Arial, sans-serif; background:var(--bg); color:var(--text); }
+    .wrap { max-width:850px; margin:auto; padding:20px; }
+    .card { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:22px; margin:16px 0; box-shadow:0 2px 8px rgba(0,0,0,.04); }
+    h1 { margin-top:0; font-size:28px; }
+    h2 { font-size:20px; }
+    label { display:block; font-weight:600; margin:14px 0 6px; }
+    input { width:100%; padding:13px; border:1px solid var(--border); border-radius:8px; font-size:16px; }
+    .pdf { width:100%; height:65vh; min-height:500px; border:1px solid var(--border); border-radius:8px; }
+    canvas { width:100%; height:220px; border:2px dashed #98a2b3; border-radius:8px; background:white; touch-action:none; }
+    .row { display:flex; gap:10px; flex-wrap:wrap; }
+    button { border:0; border-radius:8px; padding:13px 18px; font-size:16px; cursor:pointer; }
+    .primary { background:var(--accent); color:white; }
+    .secondary { background:#eaecf0; color:#172033; }
+    .check { display:flex; gap:10px; align-items:flex-start; font-weight:400; }
+    .check input { width:auto; margin-top:3px; }
+    .notice { color:var(--muted); font-size:14px; line-height:1.5; }
+    #status { margin-top:15px; font-weight:600; }
+    .success { padding:18px; border-radius:10px; background:#ecfdf3; border:1px solid #abefc6; color:#067647; }
+    @media(max-width:600px){ .wrap{padding:12px}.card{padding:16px}.pdf{height:55vh;min-height:400px}canvas{height:190px} }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <h1>RAMS Briefing & Signature</h1>
+    <p>Please read the RAMS document before completing the acknowledgement below.</p>
+    <p class="notice"><strong>Project:</strong> LONDON DOCK – BUILDING G &nbsp; | &nbsp; <strong>Activity:</strong> Kitchen</p>
+  </div>
+
+  <div class="card">
+    <h2>1. Read the RAMS</h2>
+    <iframe class="pdf" src="rams.pdf#view=FitH" title="RAMS PDF"></iframe>
+    <p class="notice">If the document does not display, use the button below.</p>
+    <a href="rams.pdf" target="_blank" rel="noopener"><button class="secondary" type="button">Open RAMS PDF</button></a>
+  </div>
+
+  <form id="signForm" class="card">
+    <h2>2. Sign the RAMS briefing</h2>
+
+    <label for="name">Full name *</label>
+    <input id="name" name="name" autocomplete="name" required>
+
+    <label for="company">Company</label>
+    <input id="company" name="company" autocomplete="organization">
+
+    <label for="role">Job role</label>
+    <input id="role" name="role" autocomplete="organization-title">
+
+    <label class="check">
+      <input id="confirm" name="confirm" type="checkbox" required>
+      <span>I confirm that I have read and understood the RAMS and have had the opportunity to raise questions with my supervisor. *</span>
+    </label>
+
+    <label>Signature *</label>
+    <canvas id="signature" width="1200" height="400" aria-label="Signature pad"></canvas>
+    <div class="row" style="margin-top:10px">
+      <button class="secondary" type="button" id="clear">Clear signature</button>
+    </div>
+
+    <p class="notice">By submitting, you are acknowledging the RAMS briefing. The submission date/time is recorded automatically.</p>
+    <button class="primary" type="submit">Submit signature</button>
+    <div id="status"></div>
+  </form>
+</div>
+
+<script>
+  // IMPORTANT: after deploying the Google Apps Script, paste its /exec URL here.
+  const SCRIPT_URL = https://script.google.com/macros/s/AKfycbyRcEm8oTNeeuvMKm8mYXVyi-P5-PCgriYzqbpQYP2V4mMhFSt8Pnyw7NMzlHIjvS3bvQ/exec;
+
+  const canvas = document.getElementById("signature");
+  const ctx = canvas.getContext("2d");
+  ctx.lineWidth = 3; ctx.lineCap = "round"; ctx.lineJoin = "round";
+  let drawing = false, hasSignature = false;
+
+  function pos(e) {
+    const r = canvas.getBoundingClientRect();
+    const p = e.touches ? e.touches[0] : e;
+    return { x:(p.clientX-r.left)*canvas.width/r.width, y:(p.clientY-r.top)*canvas.height/r.height };
+  }
+  function start(e){ e.preventDefault(); drawing=true; hasSignature=true; const p=pos(e); ctx.beginPath(); ctx.moveTo(p.x,p.y); }
+  function move(e){ if(!drawing) return; e.preventDefault(); const p=pos(e); ctx.lineTo(p.x,p.y); ctx.stroke(); }
+  function end(){ drawing=false; }
+  canvas.addEventListener("pointerdown", start);
+  canvas.addEventListener("pointermove", move);
+  canvas.addEventListener("pointerup", end);
+  canvas.addEventListener("pointercancel", end);
+  document.getElementById("clear").onclick = () => { ctx.clearRect(0,0,canvas.width,canvas.height); hasSignature=false; };
+
+  document.getElementById("signForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const status = document.getElementById("status");
+    if (SCRIPT_URL.includes("PASTE_YOUR")) { status.textContent = "The form is not connected yet. Follow the setup guide to add your free submission URL."; return; }
+    if (!hasSignature) { status.textContent = "Please draw your signature."; return; }
+
+    const data = {
+      name: document.getElementById("name").value.trim(),
+      company: document.getElementById("company").value.trim(),
+      role: document.getElementById("role").value.trim(),
+      confirm: document.getElementById("confirm").checked,
+      signature: canvas.toDataURL("image/png")
+    };
+
+    status.textContent = "Submitting…";
+    try {
+      const response = await fetch(SCRIPT_URL, {
+        method:"POST",
+        headers:{"Content-Type":"text/plain;charset=utf-8"},
+        body:JSON.stringify(data)
+      });
+      const result = await response.json();
+      if (!result.ok) throw new Error(result.error || "Submission failed");
+      document.getElementById("signForm").innerHTML =
+        '<div class="success"><h2>Thank you — signature submitted.</h2><p>Your RAMS acknowledgement has been recorded.</p></div>';
+    } catch(err) {
+      status.textContent = "Could not submit. Please check the connection and try again.";
+      console.error(err);
+    }
+  });
+</script>
+</body>
+</html>
